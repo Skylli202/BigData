@@ -7,6 +7,7 @@ from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.clustering import KMeans
+from pyspark.ml.evaluation import ClusteringEvaluator
 
 def strToBool(str):
     return str.lower() in ("yes")
@@ -21,7 +22,8 @@ def init_spark():
 
 spark, sc = init_spark()
 df = spark.read.option("delimiter", ";").csv(
-    "bank.csv", header=True,
+    # "bank.csv", header=True,
+    "bank-mini.csv", header=True,
 )
 df.printSchema()
 
@@ -54,33 +56,77 @@ FEATURES_COL = ['age', 'default', 'balance', 'housing', 'loan', 'contact', 'dura
 for col in df2.columns:
     if col in FEATURES_COL:
         df2 = df2.withColumn(col,df2[col].cast('float'))
-df2.show()
+# df2.show()
 
 df2 = df2.na.drop()
-df2.show()
+# df2.show()
 
 vecAssembler = VectorAssembler(inputCols=FEATURES_COL, outputCol="features")
 df_kmeans = vecAssembler.transform(df2).select('features')
 df_kmeans.show(20, False)
 
-cost = np.zeros(20)
-for k in range(2,20):
-    kmeans = KMeans().setK(k).setSeed(1).setFeaturesCol("features")
-    model = kmeans.fit(df_kmeans.sample(False,0.1, seed=42))
-    cost[k] = model.computeCost(df_kmeans)
+# Evaluation de K
+# cost = np.zeros(20)
+# for k in range(2,20):
+#     kmeans = KMeans().setK(k).setSeed(1).setFeaturesCol("features");
+#     model = kmeans.fit(df_kmeans)
+#
+#     predictions = model.transform(df_kmeans)
+#
+#     evaluator = ClusteringEvaluator()
+#
+#     silhouette = evaluator.evaluate(predictions)
+#     cost[k] = silhouette
+# # print("Silhouette with squared euclidean distance = " + str(silhouette))
+#
+# fig, ax = plt.subplots(1,1, figsize =(8,6))
+# ax.plot(range(2,20),cost[2:20])
+# ax.set_xlabel('k')
+# ax.set_ylabel('cost')
+# fig.show()
 
-fig, ax = plt.subplots(1,1, figsize =(8,6))
-ax.plot(range(2,20),cost[2:20])
-ax.set_xlabel('k')
-ax.set_ylabel('cost')
+# Détection du centre des cluster
+k = 3
+kmeans = KMeans().setK(k).setSeed(1).setFeaturesCol("features")
+model = kmeans.fit(df_kmeans)
+centers = model.clusterCenters()
 
+print("Cluster Centers: ")
+for center in centers:
+    print(center)
+
+transformed = model.transform(df_kmeans).select('prediction')
+rows = transformed.collect()
+print(rows)
+
+df_pred = spark.createDataFrame(rows)
+df_pred.show()
+
+df_pred = df_pred.join(df2)
+df_pred.show()
+
+# enfaite on veut bien une colonne ID
+df_pred = df_pred.withColumn("id", F.monotonically_increasing_id())
+df_pred.show()
+
+pddf_pred = df_pred.toPandas().set_index('id')
+pddf_pred.head()
+
+threedee = plt.figure(figsize=(12,10)).gca(projection='3d')
+threedee.scatter(pddf_pred.age, pddf_pred.balance, pddf_pred.duration,  c=pddf_pred.prediction)
+threedee.set_xlabel('age')
+threedee.set_ylabel('balance')
+threedee.set_zlabel('duration')
+plt.show()
+
+sc.stop()
 # ----------------------------------------
 #                K-means
 # ----------------------------------------
 
 
 # kmeans = KMeans(n_clusters=4, init='k-means++', max_iter=300, n_init=10, random_state=0)
-# pred_y = kmeans.fit_predict(X)
-# plt.scatter(X[:,0], X[:,1])
+# pred_y = kmeans.fit_predict(df_kmeans)
+# plt.scatter(df_kmeans[:,0], df_kmeans[:,1])
 # plt.scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1], s=300, c='red')
 # plt.show()
