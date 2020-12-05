@@ -22,8 +22,8 @@ def init_spark():
 
 spark, sc = init_spark()
 df = spark.read.option("delimiter", ";").csv(
-    # "bank.csv", header=True,
-    "bank-mini.csv", header=True,
+    "bank.csv", header=True,
+    #"bank-mini.csv", header=True,
 )
 df.printSchema()
 
@@ -67,7 +67,7 @@ df_kmeans.show(20, False)
 
 # Evaluation de K
 # cost = np.zeros(20)
-# for k in range(2,20):
+# for k in range(2,20):s
 #     kmeans = KMeans().setK(k).setSeed(1).setFeaturesCol("features");
 #     model = kmeans.fit(df_kmeans)
 #
@@ -102,8 +102,8 @@ print(rows)
 df_pred = spark.createDataFrame(rows)
 df_pred.show()
 
-df_pred = df_pred.join(df2)
-df_pred.show()
+#df_pred = df_pred.join(df2)
+#df_pred.show()
 
 # enfaite on veut bien une colonne ID
 df_pred = df_pred.withColumn("id", F.monotonically_increasing_id())
@@ -112,11 +112,24 @@ df_pred.show()
 pddf_pred = df_pred.toPandas().set_index('id')
 pddf_pred.head()
 
-threedee = plt.figure(figsize=(12,10)).gca(projection='3d')
-threedee.scatter(pddf_pred.age, pddf_pred.balance, pddf_pred.duration,  c=pddf_pred.prediction)
-threedee.set_xlabel('age')
-threedee.set_ylabel('balance')
-threedee.set_zlabel('duration')
+#threedee = plt.figure(figsize=(12,10)).gca(projection='3d')
+#threedee.scatter(pddf_pred.age, pddf_pred.balance, pddf_pred.duration,  c=pddf_pred.prediction)
+#threedee.set_xlabel('age')
+#threedee.set_ylabel('balance')
+#threedee.set_zlabel('duration')
+#plt.show()
+
+from mpl_toolkits.mplot3d import axes3d, Axes3D #<-- Note the capitalization! 
+fig = plt.figure()
+
+ax = Axes3D(fig) #<-- Note the difference from your original code...
+
+#X, Y, Z = axes3d.get_test_data(0.05)
+cset = ax.contour(df2.age, df2.balance, df2.duration,  pddf_pred.prediction, extend3d=True)
+ax.clabel(cset, fontsize=9, inline=1)
+ax.set_xlabel(xlabel="patate")
+ax.set_ylabel(ylabel="orange")
+ax.set_zlabel(zlabel="Mé nan !")
 plt.show()
 
 sc.stop()
