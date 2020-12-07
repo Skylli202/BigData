@@ -134,6 +134,7 @@ print("pandas df:")
 print(pddf_pred.head())
 
 # PCA
+# https://jakevdp.github.io/PythonDataScienceHandbook/05.09-principal-component-analysis.html
 print("\n\n---------------- PCA ----------------")
 from sklearn.decomposition import PCA
 
