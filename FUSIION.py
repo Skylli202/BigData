@@ -27,8 +27,9 @@ def init_spark():
 
 spark, sc = init_spark()
 df = spark.read.option("delimiter", ";").csv(
-    # "bank.csv", header=True,
-    "bank-mini.csv", header=True,
+    # "bank-full.csv", header=True,
+    "bank.csv", header=True,
+    # "bank-mini.csv", header=True,
 )
 print("Schema after reading CSV file :")
 df.printSchema()
@@ -84,28 +85,28 @@ df_kmeans = vecAssembler.transform(df2).select('features')
 print("KMeans dataframe :")
 df_kmeans.show(20, False)
 
-# # Evaluation de K (to figure out which value of K we need to use)
-# cost = np.zeros(20)
-# for k in range(2,20):
-#     kmeans = KMeans().setK(k).setSeed(1).setFeaturesCol("features");
-#     model = kmeans.fit(df_kmeans)
-#
-#     predictions = model.transform(df_kmeans)
-#
-#     evaluator = ClusteringEvaluator()
-#
-#     silhouette = evaluator.evaluate(predictions)
-#     cost[k] = silhouette
-# # print("Silhouette with squared euclidean distance = " + str(silhouette))
-#
-# fig, ax = plt.subplots(1,1, figsize =(8,6))
-# ax.plot(range(2,20),cost[2:20])
-# ax.set_xlabel('k')
-# ax.set_ylabel('cost')
-# fig.show()
+# Evaluation de K (to figure out which value of K we need to use)
+cost = np.zeros(20)
+for k in range(2,20):
+    kmeans = KMeans().setK(k).setSeed(1).setFeaturesCol("features");
+    model = kmeans.fit(df_kmeans)
+
+    predictions = model.transform(df_kmeans)
+
+    evaluator = ClusteringEvaluator()
+
+    silhouette = evaluator.evaluate(predictions)
+    cost[k] = silhouette
+# print("Silhouette with squared euclidean distance = " + str(silhouette))
+
+fig, ax = plt.subplots(1,1, figsize =(8,6))
+ax.plot(range(2,20),cost[2:20])
+ax.set_xlabel('k')
+ax.set_ylabel('cost')
+fig.show()
 
 # KMeans evaluation of Cluster's center location
-k = 3
+k = 2
 kmeans = KMeans().setK(k).setSeed(1).setFeaturesCol("features")
 model = kmeans.fit(df_kmeans)
 centers = model.clusterCenters()
@@ -119,44 +120,56 @@ centers = model.clusterCenters()
 transformed = model.transform(df_kmeans).select('prediction')
 rows = transformed.collect()
 
-df_pred = spark.createDataFrame(rows)
-df_pred = df_pred.join(df2)
+print("ROWS :")
+print(rows)
 
-# We need an ID column, so here it is...
-df_pred = df_pred.withColumn("id", F.monotonically_increasing_id())
 
-print("Dataframe with predict, features and ID")
-df_pred.show()
 
-pddf_pred = df_pred.toPandas().set_index('id')
+# df_pred = spark.createDataFrame(rows)
+# df_pred = df_pred.join(df2)
 
-print("pandas df:")
-print(pddf_pred.head())
+# # We need an ID column, so here it is...
+# df_pred = df_pred.withColumn("id", F.monotonically_increasing_id())
+
+# print("Dataframe with predict, features and ID")
+# df_pred.show()
+#
+# pddf_pred = df_pred.toPandas().set_index('id')
+#
+# print("pandas df:")
+# print(pddf_pred.head())
 
 # PCA
 # https://jakevdp.github.io/PythonDataScienceHandbook/05.09-principal-component-analysis.html
 print("\n\n---------------- PCA ----------------")
 from sklearn.decomposition import PCA
 
-pddf_numpy = pddf_pred.to_numpy()
+pddf_numpy = df2.toPandas().to_numpy()
 print(pddf_numpy.shape, pddf_numpy)
 
+# pca = PCA(n_components=2)
+# pca.fit(pddf_numpy)
+# pddf_numpy_pca = pca.transform(pddf_numpy)
+# pddf_numpy_pca_inverse = pca.inverse_transform(pddf_numpy_pca)
+# print("original shape:   ", pddf_numpy.shape)
+# print("transformed shape:", pddf_numpy_pca.shape)
+# print("inverse transformed shape:", pddf_numpy_pca_inverse.shape)
+
+scaler = StandardScaler()
+pddf_numpy_normazized = scaler.fit_transform(pddf_numpy)
 pca = PCA(n_components=2)
-pca.fit(pddf_numpy)
-pddf_numpy_pca = pca.transform(pddf_numpy)
-pddf_numpy_pca_inverse = pca.inverse_transform(pddf_numpy_pca)
-print("original shape:   ", pddf_numpy.shape)
-print("transformed shape:", pddf_numpy_pca.shape)
-print("inverse transformed shape:", pddf_numpy_pca_inverse.shape)
+pddf_numpy_normazized_pca = pca.fit_transform(pddf_numpy_normazized)
+
+colors_y = [e[0] for e in df2.select('y').toPandas().to_numpy()]
+colors_predict = [e[0] for e in spark.createDataFrame(rows).select('prediction').toPandas().to_numpy()]
+print("colors_predict:\n", colors_predict)
 
 # plt it !
-# threedee = plt.figure(figsize=(12,10)).gca(projection='3d')
-
-plt.scatter(pddf_numpy_pca[:, 0], pddf_numpy_pca[:, 1])
-# threedee.set_xlabel('age')
-# threedee.set_ylabel('balance')
-# threedee.set_zlabel('duration')
+# threedee = plt.figure(figsize=(6,5)).gca(projection='3d')
+plt.scatter(pddf_numpy_normazized_pca[:, 0], pddf_numpy_normazized_pca[:, 1], c=colors_y)
+plt.show()
+plt.scatter(pddf_numpy_normazized_pca[:, 0], pddf_numpy_normazized_pca[:, 1], c=colors_predict)
 plt.show()
 
 print("\n\n\n\n\nsc.stop() :")
-sc.stop()
+# sc.stop()
