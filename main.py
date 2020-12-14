@@ -1,8 +1,7 @@
 import numpy as np
-import pandas as pd
 from matplotlib import pyplot as plt
-from sklearn.datasets.samples_generator import make_blobs
 from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 
 # from sklearn.cluster import KMeans
 from pyspark.sql import SparkSession
@@ -123,37 +122,11 @@ rows = transformed.collect()
 print("ROWS :")
 print(rows)
 
-
-
-# df_pred = spark.createDataFrame(rows)
-# df_pred = df_pred.join(df2)
-
-# # We need an ID column, so here it is...
-# df_pred = df_pred.withColumn("id", F.monotonically_increasing_id())
-
-# print("Dataframe with predict, features and ID")
-# df_pred.show()
-#
-# pddf_pred = df_pred.toPandas().set_index('id')
-#
-# print("pandas df:")
-# print(pddf_pred.head())
-
 # PCA
 # https://jakevdp.github.io/PythonDataScienceHandbook/05.09-principal-component-analysis.html
 print("\n\n---------------- PCA ----------------")
-from sklearn.decomposition import PCA
-
 pddf_numpy = df2.toPandas().to_numpy()
 print(pddf_numpy.shape, pddf_numpy)
-
-# pca = PCA(n_components=2)
-# pca.fit(pddf_numpy)
-# pddf_numpy_pca = pca.transform(pddf_numpy)
-# pddf_numpy_pca_inverse = pca.inverse_transform(pddf_numpy_pca)
-# print("original shape:   ", pddf_numpy.shape)
-# print("transformed shape:", pddf_numpy_pca.shape)
-# print("inverse transformed shape:", pddf_numpy_pca_inverse.shape)
 
 scaler = StandardScaler()
 pddf_numpy_normazized = scaler.fit_transform(pddf_numpy)
@@ -162,10 +135,8 @@ pddf_numpy_normazized_pca = pca.fit_transform(pddf_numpy_normazized)
 
 colors_y = [e[0] for e in df2.select('y').toPandas().to_numpy()]
 colors_predict = [e[0] for e in spark.createDataFrame(rows).select('prediction').toPandas().to_numpy()]
-print("colors_predict:\n", colors_predict)
 
-# plt it !
-# threedee = plt.figure(figsize=(6,5)).gca(projection='3d')
+# plot it !
 plt.scatter(pddf_numpy_normazized_pca[:, 0], pddf_numpy_normazized_pca[:, 1], c=colors_y)
 plt.show()
 plt.scatter(pddf_numpy_normazized_pca[:, 0], pddf_numpy_normazized_pca[:, 1], c=colors_predict)
